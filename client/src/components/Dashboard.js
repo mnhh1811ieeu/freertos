@@ -18,25 +18,80 @@ function SoilMoistureApp() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/humidity") // Thay đường dẫn API nếu cần
-        const data = await response.json()
+        const response = await fetch("http://localhost:5000/api/humidity");
+        const data = await response.json();
+  
+        console.log("Dữ liệu API:", data); // Kiểm tra dữ liệu nhận về
   
         if (data.length > 0) {
-          setCurrentMoisture(data[0].value) // Lấy giá trị mới nhất
-          setMoistureHistory(data.map(item => item.value).slice(0, 24)) // Lấy 24 giá trị gần nhất
+          setMoistureHistory(
+            data.map(item => ({
+              value: item.value || 0, // Nếu không có giá trị, đặt mặc định là 0
+              timestamp: item.timestamp 
+                ? new Date(item.timestamp).toLocaleString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                  })
+                : "Không có dữ liệu"
+            }))
+          );
+  
+          // Lấy giá trị độ ẩm mới nhất và cập nhật state
+          setCurrentMoisture(data[0].value || 0);
         }
       } catch (error) {
-        console.error("Lỗi khi lấy dữ liệu độ ẩm:", error)
+        console.error("Lỗi khi lấy dữ liệu độ ẩm:", error);
+      }
+    };
+  
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+  // Fetch threshold values
+  useEffect(() => {
+    const fetchThresholds = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/thresholds")
+        const data = await response.json()
+
+        if (data) {
+          setUpperThreshold(data.upperThreshold || 70)
+          setLowerThreshold(data.lowerThreshold || 30)
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy ngưỡng:", error)
       }
     }
-  
-    fetchData()
-    const interval = setInterval(fetchData, 5000) // Cập nhật mỗi 5 giây
-  
-    return () => clearInterval(interval)
-  }, [])
-  
 
+    fetchThresholds()
+  }, [])
+
+  // Update threshold values in the backend
+  const updateThresholds = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/thresholds", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          lowerThreshold,
+          upperThreshold
+        }),
+      });
+  
+      const data = await response.json();
+      console.log("✅ Cập nhật ngưỡng thành công:", data);
+    } catch (error) {
+      console.error("❌ Lỗi cập nhật ngưỡng:", error);
+    }
+  };
+  
   // Determine moisture status
   const getMoistureStatus = () => {
     if (currentMoisture > upperThreshold) return "Cao"
@@ -140,98 +195,86 @@ function SoilMoistureApp() {
           </div>
         </div>
 
-        {/* Threshold Settings Card */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Ngưỡng</h2>
-          </div>
-          <div className="card-content">
-            <div className="threshold-container">
-              <div className="threshold-row">
-                <div className="flex-between">
-                  <label htmlFor="upper-threshold" className="small-text">
-                    Ngưỡng trên:
-                  </label>
-                  <div className="flex-center">
-                    <input
-                      id="upper-threshold"
-                      type="number"
-                      min={lowerThreshold + 5}
-                      max={100}
-                      value={upperThreshold}
-                      onChange={(e) => {
-                        const value = Number.parseInt(e.target.value)
-                        if (!isNaN(value) && value > lowerThreshold && value <= 100) {
-                          setUpperThreshold(value)
-                        }
-                      }}
-                      className="number-input"
-                    />
-                    <span className="small-text">%</span>
-                  </div>
-                </div>
-                <input
-                  type="range"
-                  value={upperThreshold}
-                  min={0}
-                  max={100}
-                  step={1}
-                  onChange={(e) => {
-                    const newValue = Number.parseInt(e.target.value)
-                    if (newValue > lowerThreshold) {
-                      setUpperThreshold(newValue)
-                    }
-                  }}
-                  className="slider"
-                />
-              </div>
-
-              <div className="threshold-row">
-                <div className="flex-between">
-                  <label htmlFor="lower-threshold" className="small-text">
-                    Ngưỡng dưới:
-                  </label>
-                  <div className="flex-center">
-                    <input
-                      id="lower-threshold"
-                      type="number"
-                      min={0}
-                      max={upperThreshold - 5}
-                      value={lowerThreshold}
-                      onChange={(e) => {
-                        const value = Number.parseInt(e.target.value)
-                        if (!isNaN(value) && value < upperThreshold && value >= 0) {
-                          setLowerThreshold(value)
-                        }
-                      }}
-                      className="number-input"
-                    />
-                    <span className="small-text">%</span>
-                  </div>
-                </div>
-                <input
-                  type="range"
-                  value={lowerThreshold}
-                  min={0}
-                  max={100}
-                  step={1}
-                  onChange={(e) => {
-                    const newValue = Number.parseInt(e.target.value)
-                    if (newValue < upperThreshold) {
-                      setLowerThreshold(newValue)
-                    }
-                  }}
-                  className="slider"
-                />
-              </div>
-
-              <div className="flex-between muted-text">
-                <span>Bật bơm &lt; {lowerThreshold}%</span>
-                <span>Tắt bơm &gt; {upperThreshold}%</span>
-              </div>
-            </div>
+       {/* Threshold Settings Card */}
+<div className="card">
+  <div className="card-header">
+    <h2 className="card-title">Ngưỡng</h2>
+  </div>
+  <div className="card-content">
+    <div className="threshold-container">
+      <div className="threshold-row">
+        <div className="flex-between">
+          <label htmlFor="upper-threshold" className="small-text">
+            Ngưỡng trên:
+          </label>
+          <div className="flex-center">
+            <input
+              id="upper-threshold"
+              type="number"
+              min={lowerThreshold + 5}
+              max={100}
+              value={upperThreshold}
+              onChange={(e) => setUpperThreshold(Number(e.target.value))}
+              className="number-input"
+            />
+            <span className="small-text">%</span>
           </div>
         </div>
+        <input
+          type="range"
+          value={upperThreshold}
+          min={0}
+          max={100}
+          step={1}
+          onChange={(e) => setUpperThreshold(Number(e.target.value))}
+          className="slider"
+        />
+      </div>
+
+      <div className="threshold-row">
+        <div className="flex-between">
+          <label htmlFor="lower-threshold" className="small-text">
+            Ngưỡng dưới:
+          </label>
+          <div className="flex-center">
+            <input
+              id="lower-threshold"
+              type="number"
+              min={0}
+              max={upperThreshold - 5}
+              value={lowerThreshold}
+              onChange={(e) => setLowerThreshold(Number(e.target.value))}
+              className="number-input"
+            />
+            <span className="small-text">%</span>
+          </div>
+        </div>
+        <input
+          type="range"
+          value={lowerThreshold}
+          min={0}
+          max={100}
+          step={1}
+          onChange={(e) => setLowerThreshold(Number(e.target.value))}
+          className="slider"
+        />
+      </div>
+
+      <div className="flex-between muted-text">
+        <span>Bật bơm &lt; {lowerThreshold}%</span>
+        <span>Tắt bơm &gt; {upperThreshold}%</span>
+      </div>
+
+      {/* Nút Lưu */}
+      <div className="flex-center">
+        <button className="save-button" onClick={updateThresholds}>
+          Lưu ngưỡng
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
       </div>
     </div>
   )

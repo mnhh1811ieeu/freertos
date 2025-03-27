@@ -14,6 +14,7 @@ app.use(cors());
 
 // Routes
 app.use("/api/humidity", require("./routes/humidity"));
+app.use("/api/thresholds", require("./routes/threshold")); // Thêm tuyến đường ngưỡng
 
 // Khởi động server
 const PORT = process.env.PORT || 5000;

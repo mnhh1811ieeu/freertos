@@ -8,13 +8,14 @@ function ChartView({ setCurrentView, moistureHistory, upperThreshold, lowerThres
 
   // Chuyển đổi dữ liệu thành định dạng phù hợp với LineChart
   const chartData = useMemo(() => {
-    return moistureHistory.map((value, index) => ({
-      name: `${24 - index}h`,
-      moisture: value, // Độ ẩm
-      upper: upperThreshold, // Ngưỡng trên
-      lower: lowerThreshold, // Ngưỡng dưới
+    return moistureHistory.map(item => ({
+      name: item.timestamp, // Dùng timestamp thực tế thay vì 24h, 23h...
+      moisture: item.value,
+      upper: upperThreshold,
+      lower: lowerThreshold,
     }))
   }, [moistureHistory, upperThreshold, lowerThreshold])
+  
 
   return (
     <div className="container">
@@ -66,21 +67,26 @@ function ChartView({ setCurrentView, moistureHistory, upperThreshold, lowerThres
                     <tr><th>Thời gian</th><th>Độ ẩm (%)</th><th>Trạng thái</th></tr>
                   </thead>
                   <tbody>
-                    {moistureHistory.map((value, index) => (
-                      <tr key={index}>
-                        <td>{24 - index} giờ trước</td>
-                        <td>{value}%</td>
-                        <td>
-                          <div className="table-badge" style={{
-                            backgroundColor: value > upperThreshold ? "#3b82f6" : value < lowerThreshold ? "#ef4444" : "#e5e7eb",
-                            color: value > upperThreshold || value < lowerThreshold ? "white" : "#374151",
-                          }}>
-                            {value > upperThreshold ? "Cao" : value < lowerThreshold ? "Thấp" : "Bình thường"}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+  {moistureHistory.length > 0 ? (
+    moistureHistory.map((item, index) => (
+      <tr key={index}>
+        <td>{item.timestamp || "Không có thời gian"}</td>
+        <td>{item.value !== undefined ? `${item.value}%` : "Không có dữ liệu"}</td>
+        <td>
+          <div className="table-badge">
+            {item.value > upperThreshold ? "Cao" : item.value < lowerThreshold ? "Thấp" : "Bình thường"}
+          </div>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan="3">Không có dữ liệu</td>
+    </tr>
+  )}
+</tbody>
+
+
                 </table>
               </div>
             )}
