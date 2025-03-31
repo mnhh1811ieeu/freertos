@@ -8,38 +8,68 @@ function SoilMoistureApp() {
 
   // State for soil moisture data
   const [currentMoisture, setCurrentMoisture] = useState(45)
-  const [upperThreshold, setUpperThreshold] = useState(70)
-  const [lowerThreshold, setLowerThreshold] = useState(30)
+  const [upperThreshold, setUpperThreshold] = useState(60)
+  const [lowerThreshold, setLowerThreshold] = useState(25)
   const [pumpStatus, setPumpStatus] = useState(false)
   const [autoMode, setAutoMode] = useState(true)
 
   // Mock historical data
   const [moistureHistory, setMoistureHistory] = useState([])
   useEffect(() => {
+    const fetchPumpStatus = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/pump"); // 🟢 Cập nhật đường dẫn mới
+        const data = await response.json();
+        if (response.ok) {
+          setPumpStatus(data.pumpStatus);
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy trạng thái máy bơm:", error);
+      }
+    };
+
+    fetchPumpStatus();
+  }, []);
+
+  useEffect(() => {
+    const fetchThresholds = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/thresholds");
+        const data = await response.json();
+        setUpperThreshold(data.upperThreshold);
+        setLowerThreshold(data.lowerThreshold);
+      } catch (error) {
+        console.error("Lỗi khi lấy ngưỡng:", error);
+      }
+    };
+    fetchThresholds();
+  }, []);
+  
+  useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await fetch("http://localhost:5000/api/humidity");
         const data = await response.json();
-  
+
         console.log("Dữ liệu API:", data); // Kiểm tra dữ liệu nhận về
-  
+
         if (data.length > 0) {
           setMoistureHistory(
             data.map(item => ({
               value: item.value || 0, // Nếu không có giá trị, đặt mặc định là 0
-              timestamp: item.timestamp 
+              timestamp: item.timestamp
                 ? new Date(item.timestamp).toLocaleString("vi-VN", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit"
-                  })
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit"
+                })
                 : "Không có dữ liệu"
             }))
           );
-  
+
           // Lấy giá trị độ ẩm mới nhất và cập nhật state
           setCurrentMoisture(data[0].value || 0);
         }
@@ -47,51 +77,31 @@ function SoilMoistureApp() {
         console.error("Lỗi khi lấy dữ liệu độ ẩm:", error);
       }
     };
-  
+
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
-  // Fetch threshold values
-  useEffect(() => {
-    const fetchThresholds = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/thresholds")
-        const data = await response.json()
-
-        if (data) {
-          setUpperThreshold(data.upperThreshold || 70)
-          setLowerThreshold(data.lowerThreshold || 30)
-        }
-      } catch (error) {
-        console.error("Lỗi khi lấy ngưỡng:", error)
-      }
-    }
-
-    fetchThresholds()
-  }, [])
-
-  // Update threshold values in the backend
-  const updateThresholds = async () => {
+  const toggleAutoMode = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/thresholds", {
+      const response = await fetch("http://localhost:5000/api/mode", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          lowerThreshold,
-          upperThreshold
-        }),
+        body: JSON.stringify({ mode: !autoMode }),
       });
-  
+
       const data = await response.json();
-      console.log("✅ Cập nhật ngưỡng thành công:", data);
+      if (data.success) {
+        setAutoMode(data.mode);
+      }
     } catch (error) {
-      console.error("❌ Lỗi cập nhật ngưỡng:", error);
+      console.error("Lỗi khi cập nhật chế độ tự động:", error);
     }
   };
-  
+
+
   // Determine moisture status
   const getMoistureStatus = () => {
     if (currentMoisture > upperThreshold) return "Cao"
@@ -107,11 +117,49 @@ function SoilMoistureApp() {
   }
 
   // Toggle pump manually
-  const togglePump = () => {
-    if (!autoMode) {
-      setPumpStatus(!pumpStatus)
+  const togglePump = async () => {
+    if (autoMode) return; // Không cho phép bật/tắt nếu ở chế độ tự động
+  
+    try {
+      const response = await fetch("http://localhost:5000/api/pump", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: !pumpStatus, autoMode }),
+      });
+  
+      const data = await response.json();
+      if (data.success) {
+        setPumpStatus(data.pumpStatus);
+      } else {
+        console.error("Lỗi cập nhật máy bơm:", data.message);
+      }
+    } catch (error) {
+      console.error("Lỗi khi gửi yêu cầu:", error);
     }
-  }
+  };
+  const updateThresholds = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/thresholds", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ upperThreshold, lowerThreshold }),
+      });
+  
+      const data = await response.json();
+      if (data.success) {
+        alert("Cập nhật thành công!");
+      } else {
+        alert("Lỗi: " + data.message);
+      }
+    } catch (error) {
+      console.error("Lỗi khi cập nhật ngưỡng:", error);
+    }
+  };
+  
 
   // Dashboard View Component
   const DashboardView = () => (
@@ -164,38 +212,38 @@ function SoilMoistureApp() {
               </div>
               <button
                 className={`button ${pumpStatus ? "destructive-button" : "primary-button"}`}
-                disabled={autoMode}
+                disabled={autoMode} // Không cho bật/tắt khi autoMode đang bật
                 onClick={togglePump}
               >
                 {pumpStatus ? "Tắt" : "Bật"}
               </button>
+
             </div>
           </div>
         </div>
 
         {/* Auto/Manual Mode Card */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Chế Độ</h2>
-          </div>
-          <div className="card-content">
-            <div className="flex-between">
-              <label htmlFor="auto-mode">Tự động:</label>
-              <div className="switch-container">
-                <input
-                  type="checkbox"
-                  id="auto-mode"
-                  className="switch"
-                  checked={autoMode}
-                  onChange={() => setAutoMode(!autoMode)}
-                />
-                <label htmlFor="auto-mode" className="switch-label"></label>
+        <div className="grid">
+          <div className="card">
+            <div className="card-header"><h2>Chế Độ</h2></div>
+            <div className="card-content">
+              <div className="flex-between">
+                <label htmlFor="auto-mode">Tự động:</label>
+                <div className="switch-container">
+                  <input
+                    type="checkbox"
+                    id="auto-mode"
+                    className="switch"
+                    checked={autoMode}
+                    onChange={toggleAutoMode}
+                  />
+                  <label htmlFor="auto-mode" className="switch-label"></label>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-       {/* Threshold Settings Card */}
+      {/* Threshold Settings Card */}
 <div className="card">
   <div className="card-header">
     <h2 className="card-title">Ngưỡng</h2>
@@ -275,17 +323,18 @@ function SoilMoistureApp() {
   </div>
 </div>
 
+
       </div>
     </div>
   )
 
   // Render the current view
   return currentView === "dashboard" ? <DashboardView /> : <ChartView
-  setCurrentView={setCurrentView}
-  moistureHistory={moistureHistory}
-  upperThreshold={upperThreshold}
-  lowerThreshold={lowerThreshold}
-/>
+    setCurrentView={setCurrentView}
+    moistureHistory={moistureHistory}
+    upperThreshold={upperThreshold}
+    lowerThreshold={lowerThreshold}
+  />
 }
 
 export default SoilMoistureApp
