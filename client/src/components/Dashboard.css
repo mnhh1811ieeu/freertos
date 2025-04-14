@@ -439,4 +439,82 @@
     top: 0;
   }
   
-  
+  /* Add these styles to your existing Dashboard.css file */
+
+.chart-controls {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.secondary-button {
+  background-color: transparent;
+  border: 1px solid #ccc;
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.secondary-button:hover {
+  background-color: #f0f0f0;
+}
+
+.fullscreen-chart {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: white;
+  padding: 20px;
+  overflow: auto;
+}
+
+.zoom-instructions {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.status-high {
+  background-color: #ffdddd;
+  color: #cc0000;
+  border: 1px solid #cc0000;
+}
+
+.status-low {
+  background-color: #ffffdd;
+  color: #cc7700;
+  border: 1px solid #cc7700;
+}
+
+.status-normal {
+  background-color: #ddffdd;
+  color: #007700;
+  border: 1px solid #007700;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.schedule-list {
+  list-style: none;
+  padding: 0;
+}
+
+.schedule-item {
+  background: #f3f4f6;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+}

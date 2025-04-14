@@ -11,6 +11,9 @@ connectDB();
 app.use(express.json());
 app.use(cors());
 const thresholdRoutes = require("./routes/thresholds");
+const scheduleRoutes = require("./routes/schedule");
+app.use("/api/schedule", scheduleRoutes);
+
 app.use("/api/thresholds", thresholdRoutes);
 // Routes
 app.use("/api/humidity", require("./routes/humidity"));
