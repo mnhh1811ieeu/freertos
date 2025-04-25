@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { ArrowLeft, ZoomOut } from "lucide-react"
+import { useMemo, useState, useEffect } from "react"
+import { ArrowLeft } from "lucide-react"
 import {
   LineChart,
   Line,
@@ -11,68 +11,72 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ReferenceArea,
 } from "recharts"
+import ReactDatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
 
-function ChartView({ setCurrentView, moistureHistory, upperThreshold, lowerThreshold }) {
-  const [zoomState, setZoomState] = useState(null)
-  const [leftZoomIndex, setLeftZoomIndex] = useState(null)
-  const [rightZoomIndex, setRightZoomIndex] = useState(null)
+function ChartView({ setCurrentView, upperThreshold, lowerThreshold }) {
+  const [moistureHistory, setMoistureHistory] = useState([]); // State để lưu dữ liệu độ ẩm
+  const [selectedDate, setSelectedDate] = useState(null) // State để lưu ngày được chọn
+
+  // Lọc dữ liệu theo ngày được chọn
+  const filteredData = useMemo(() => {
+    if (!selectedDate) {
+      // Nếu không chọn ngày, lấy dữ liệu ngày gần nhất
+      const latestDate = Math.max(...moistureHistory.map((item) => new Date(item.timestamp).getTime()));
+      return moistureHistory.filter(
+        (item) => new Date(item.timestamp).toDateString() === new Date(latestDate).toDateString()
+      );
+    }
+
+    // Lọc dữ liệu theo ngày được chọn
+    return moistureHistory.filter((item) => {
+      const itemDate = new Date(item.timestamp);
+      const selectedUTCDate = new Date(
+        Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate()
+        )
+      );
+
+      // So sánh chỉ phần ngày (bỏ qua giờ, phút, giây)
+      return (
+        itemDate.getUTCFullYear() === selectedUTCDate.getUTCFullYear() &&
+        itemDate.getUTCMonth() === selectedUTCDate.getUTCMonth() &&
+        itemDate.getUTCDate() === selectedUTCDate.getUTCDate()
+      );
+    });
+  }, [selectedDate, moistureHistory]);
 
   const chartData = useMemo(() => {
-    return moistureHistory.map((item, index) => ({
+    return filteredData.map((item, index) => ({
       name: item.timestamp,
       moisture: item.value,
       upper: upperThreshold,
       lower: lowerThreshold,
       index,
     }))
-  }, [moistureHistory, upperThreshold, lowerThreshold])
+  }, [filteredData, upperThreshold, lowerThreshold])
 
-  const handleZoom = () => {
-    if (leftZoomIndex !== null && rightZoomIndex !== null) {
-      setZoomState({
-        startIndex: Math.min(leftZoomIndex, rightZoomIndex),
-        endIndex: Math.max(leftZoomIndex, rightZoomIndex),
-      })
-      setLeftZoomIndex(null)
-      setRightZoomIndex(null)
-    }
-  }
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/humidity");
+        const data = await response.json();
+        console.log("Dữ liệu từ API:", data); // Kiểm tra dữ liệu trả về
+        setMoistureHistory(data);
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu từ API:", error);
+      }
+    };
 
-  const resetZoom = () => {
-    setZoomState(null)
-    setLeftZoomIndex(null)
-    setRightZoomIndex(null)
-  }
-
-  const handleMouseDown = (e) => {
-    if (!e?.activeLabel) return
-    const index = chartData.findIndex((item) => item.name === e.activeLabel)
-    if (index !== -1) {
-      setLeftZoomIndex(index)
-      setRightZoomIndex(null)
-    }
-  }
-
-  const handleMouseMove = (e) => {
-    if (!e?.activeLabel || leftZoomIndex === null) return
-    const index = chartData.findIndex((item) => item.name === e.activeLabel)
-    if (index !== -1) setRightZoomIndex(index)
-  }
-
-  const handleMouseUp = () => {
-    if (leftZoomIndex !== null && rightZoomIndex !== null) handleZoom()
-  }
-
-  const displayData = useMemo(() => {
-    if (!zoomState) return chartData
-    return chartData.slice(zoomState.startIndex, zoomState.endIndex + 1)
-  }, [chartData, zoomState])
+    fetchData();
+  }, []);
 
   return (
     <div className="container" style={{ padding: "20px" }}>
-      <style jsx>{`
+<style jsx>{`
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .header h1 { margin: 0; font-size: 24px; }
         .button { padding: 8px 16px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 14px; }
@@ -95,12 +99,15 @@ function ChartView({ setCurrentView, moistureHistory, upperThreshold, lowerThres
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">Dữ Liệu Độ Ẩm</h2>
-          {zoomState && (
-            <button className="button ghost-button" onClick={resetZoom}>
-              <ZoomOut style={{ fontSize: "16px" }} />
-              Reset Zoom
-            </button>
-          )}
+          <div className="date-picker-container">
+            <ReactDatePicker
+              selected={selectedDate}
+              onChange={(date) => setSelectedDate(date)}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Chọn ngày"
+              className="date-picker"
+            />
+          </div>
         </div>
 
         <div className="card-content">
@@ -112,18 +119,11 @@ function ChartView({ setCurrentView, moistureHistory, upperThreshold, lowerThres
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={displayData}
+                  data={chartData}
                   margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    tickFormatter={() => ""} // Hide date labels
-                    height={40}
-                  />
+                  <XAxis dataKey="name" tickFormatter={() => ""} height={40} />
                   <YAxis label={{ value: "Độ ẩm (%)", angle: -90, position: "insideLeft" }} domain={[0, 100]} />
                   <Tooltip formatter={(value) => [`${value}`, ""]} labelFormatter={() => ""} />
                   <Legend />
@@ -138,15 +138,6 @@ function ChartView({ setCurrentView, moistureHistory, upperThreshold, lowerThres
                   />
                   <Line type="monotone" dataKey="upper" stroke="#ff0000" name="Ngưỡng trên" strokeDasharray="5 5" />
                   <Line type="monotone" dataKey="lower" stroke="#00ff00" name="Ngưỡng dưới" strokeDasharray="5 5" />
-                  {leftZoomIndex !== null && rightZoomIndex !== null && (
-                    <ReferenceArea
-                      x1={chartData[leftZoomIndex]?.name}
-                      x2={chartData[rightZoomIndex]?.name}
-                      strokeOpacity={0.3}
-                      fill="#8884d8"
-                      fillOpacity={0.2}
-                    />
-                  )}
                 </LineChart>
               </ResponsiveContainer>
             )}
